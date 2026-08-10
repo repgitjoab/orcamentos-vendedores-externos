@@ -11,6 +11,35 @@ const MARCAS = ['Renault', 'GM'];
 function baseDeProdutos(marca){
   return marca === 'Renault' ? PRODUTOS_RENAULT : PRODUTOS_GM;
 }
+// Agrupa a base "flat" (uma linha por loja) em uma linha por código,
+// listando todas as lojas/empresas que possuem aquele item e seus custos.
+function produtosAgrupados(marca){
+  const cacheKey = '_agrupCache_' + marca;
+  if(window[cacheKey]) return window[cacheKey];
+  const base = baseDeProdutos(marca);
+  const mapa = new Map();
+  base.forEach(p => {
+    if(!mapa.has(p.codigo)){
+      mapa.set(p.codigo, { codigo: p.codigo, descricao: p.descricao, curva: p.curva, possuiPis:false, possuiCofins:false, lojas: [] });
+    }
+    const grupo = mapa.get(p.codigo);
+    if(p.possuiPis) grupo.possuiPis = true;
+    if(p.possuiCofins) grupo.possuiCofins = true;
+    grupo.lojas.push({
+      empresa: p.empresa,
+      custoContabil: p.custoContabil,
+      precoVendaIC: p.precoVendaIC,
+      precoVendaFor: p.precoVendaFor,
+      curva: p.curva,
+      locacao: p.locacao,
+      possuiPis: p.possuiPis,
+      possuiCofins: p.possuiCofins,
+    });
+  });
+  const lista = Array.from(mapa.values());
+  window[cacheKey] = lista;
+  return lista;
+}
 
 function dbPadrao(){
   return {
@@ -203,23 +232,26 @@ function margemMinima(marca){
   const db = getDB();
   return (db.parametros[marca] && db.parametros[marca].margemMinima) || 0;
 }
-// Margem de Lucro = Preço de Venda - ICMS(sobre a venda) - Custo Contábil
-// margemPct é sobre o preço de venda (margem líquida percentual)
-function calcularItem({ custoContabil, icmsPct, precoVenda }){
+// Margem de Lucro = Preço de Venda - ICMS(sobre a venda) - PIS/COFINS(9,25%, se o item tiver e houver ICMS informado) - Custo Contábil
+const ALIQUOTA_PIS_COFINS = 9.25; // percentual sobre o preço de venda, quando o item é tributado por ICMS e possui PIS/COFINS
+function calcularItem({ custoContabil, icmsPct, precoVenda, temPisCofins }){
   custoContabil = Number(custoContabil)||0;
   icmsPct = Number(icmsPct)||0;
   precoVenda = Number(precoVenda)||0;
+  const aplicaPisCofins = icmsPct > 0 && !!temPisCofins;
   const valorIcms = precoVenda * (icmsPct/100);
-  const margemValor = precoVenda - valorIcms - custoContabil;
+  const valorPisCofins = aplicaPisCofins ? precoVenda * (ALIQUOTA_PIS_COFINS/100) : 0;
+  const margemValor = precoVenda - valorIcms - valorPisCofins - custoContabil;
   const margemPct = precoVenda > 0 ? (margemValor / precoVenda) * 100 : 0;
-  return { valorIcms, margemValor, margemPct };
+  return { valorIcms, valorPisCofins, aplicaPisCofins, margemValor, margemPct };
 }
-function precoPorMargemDesejada({ custoContabil, icmsPct, margemPctDesejada }){
-  // PV - PV*icms% - custo = PV*margem% => PV*(1 - icms% - margem%) = custo
+function precoPorMargemDesejada({ custoContabil, icmsPct, margemPctDesejada, temPisCofins }){
+  // PV - PV*icms% - PV*pisCofins% - custo = PV*margem% => PV*(1 - icms% - pisCofins% - margem%) = custo
   custoContabil = Number(custoContabil)||0;
   icmsPct = Number(icmsPct)||0;
   margemPctDesejada = Number(margemPctDesejada)||0;
-  const fator = 1 - (icmsPct/100) - (margemPctDesejada/100);
+  const pisCofinsPct = (icmsPct > 0 && temPisCofins) ? ALIQUOTA_PIS_COFINS : 0;
+  const fator = 1 - (icmsPct/100) - (pisCofinsPct/100) - (margemPctDesejada/100);
   if(fator <= 0) return custoContabil * 2; // evita divisão inválida quando irreal
   return custoContabil / fator;
 }
