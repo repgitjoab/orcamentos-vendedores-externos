@@ -126,17 +126,17 @@ function renderNovoOrcamento(orc){
     const margemBaixaCls = calc.margemPct < minMargem ? 'color:var(--red);font-weight:700;' : 'color:var(--green);font-weight:700;';
     return `
       <tr>
-        <td><strong>${item.codigo}</strong><br><span style="font-size:12px;color:var(--gray-500);">${item.descricao}</span></td>
-        <td style="width:70px;"><input type="number" min="1" value="${item.qtde}" style="width:60px;padding:6px;border:1px solid var(--gray-300);border-radius:6px;" onchange="atualizarItem(${idx},'qtde',this.value)"></td>
-        <td>${fmtMoeda(item.custoContabil)}</td>
-        <td style="width:90px;"><input type="number" step="0.01" min="0" value="${item.icmsPct}" style="width:70px;padding:6px;border:1px solid var(--gray-300);border-radius:6px;" onchange="atualizarItem(${idx},'icmsPct',this.value)">%</td>
-        <td style="width:120px;"><input type="number" step="0.01" min="0" value="${item.precoVenda}" style="width:100px;padding:6px;border:1px solid var(--gray-300);border-radius:6px;" onchange="atualizarItem(${idx},'precoVenda',this.value)"></td>
-        <td style="width:110px;">
-          <input type="number" step="0.01" placeholder="%" style="width:70px;padding:6px;border:1px solid var(--gray-300);border-radius:6px;" onchange="atualizarPorMargem(${idx},this.value)">
+        <td data-label="Item"><strong>${item.codigo}</strong><br><span style="font-size:12px;color:var(--gray-500);">${item.descricao}</span></td>
+        <td data-label="Qtde" class="td-input"><input type="number" min="1" value="${item.qtde}" onchange="atualizarItem(${idx},'qtde',this.value)"></td>
+        <td data-label="Custo Cont.">${fmtMoeda(item.custoContabil)}</td>
+        <td data-label="ICMS (%)" class="td-input"><input type="number" step="0.01" min="0" value="${item.icmsPct}" onchange="atualizarItem(${idx},'icmsPct',this.value)"></td>
+        <td data-label="Preço Venda" class="td-input"><input type="number" step="0.01" min="0" value="${item.precoVenda}" onchange="atualizarItem(${idx},'precoVenda',this.value)"></td>
+        <td data-label="Margem desejada (%)" class="td-input">
+          <input type="number" step="0.01" placeholder="%" onchange="atualizarPorMargem(${idx},this.value)">
         </td>
-        <td style="${margemBaixaCls}">${calc.margemPct.toFixed(1)}%</td>
-        <td><strong>${fmtMoeda(subtotal)}</strong></td>
-        <td><button class="btn btn-danger btn-sm" onclick="removerItem(${idx})">✕</button></td>
+        <td data-label="Margem obtida" style="${margemBaixaCls}">${calc.margemPct.toFixed(1)}%</td>
+        <td data-label="Subtotal"><strong>${fmtMoeda(subtotal)}</strong></td>
+        <td data-label=""><button class="btn btn-danger btn-sm" onclick="removerItem(${idx})">✕ Remover</button></td>
       </tr>
     `;
   }).join('');
@@ -154,7 +154,7 @@ function renderNovoOrcamento(orc){
     </div>
 
     <div class="card" style="padding:0;overflow-x:auto;">
-      <table>
+      <table class="tabela-responsiva tabela-carrinho">
         <thead><tr>
           <th>Item</th><th>Qtde</th><th>Custo Cont.</th><th>ICMS</th><th>Preço Venda</th><th>Margem desejada</th><th>Margem obtida</th><th>Subtotal</th><th></th>
         </tr></thead>
@@ -164,12 +164,12 @@ function renderNovoOrcamento(orc){
       </table>
     </div>
 
-    <div class="card" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:14px;">
+    <div class="card total-orcamento-card">
       <div>
         <div style="font-size:12.5px;color:var(--gray-500);font-weight:700;">TOTAL DO ORÇAMENTO</div>
         <div style="font-family:'Poppins';font-size:28px;font-weight:800;color:var(--gold-deep);">${fmtMoeda(totalGeral)}</div>
       </div>
-      <div style="display:flex;gap:10px;flex-wrap:wrap;">
+      <div class="acoes-orcamento">
         <button class="btn btn-outline" onclick="limparOrcamentoEmEdicao()">Limpar</button>
         <button class="btn btn-outline" onclick="gerarPDF()" ${orc.itens.length?'':'disabled'}>Exportar PDF</button>
         <button class="btn btn-outline" onclick="gerarPNG()" ${orc.itens.length?'':'disabled'}>Exportar PNG</button>

@@ -226,6 +226,9 @@ tbody tr:hover{background:#fafafa;}
 .empty-state h3{color:var(--gray-900);margin-bottom:6px;}
 .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
 .grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;}
+.tabela-carrinho .td-input input{width:90px;padding:6px 8px;border:1px solid var(--gray-300);border-radius:6px;font-size:13px;}
+.total-orcamento-card{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:14px;}
+.acoes-orcamento{display:flex;gap:10px;flex-wrap:wrap;}
 @media (max-width:900px){
   .grid-2,.grid-3{grid-template-columns:1fr;}
   #app.ativo{flex-direction:column;}
@@ -254,6 +257,11 @@ tbody tr:hover{background:#fafafa;}
     content:attr(data-label);display:block;font-size:10.5px;font-weight:700;text-transform:uppercase;
     color:var(--gray-500);letter-spacing:.4px;margin-bottom:2px;
   }
+  .tabela-carrinho .td-input input{width:100%;padding:9px 10px;font-size:14px;}
+  .total-orcamento-card{flex-direction:column;align-items:stretch;text-align:center;}
+  .acoes-orcamento{flex-direction:column;}
+  .acoes-orcamento .btn{width:100%;}
+  .grid-3{gap:10px;}
   .marca-grid{gap:16px;}
   .marca-card{width:100%;max-width:320px;padding:26px 20px;}
   .login-box{padding:26px 22px;}
