@@ -62,8 +62,10 @@ function salvarNovaRota(){
   const data = document.getElementById('rota-data').value;
   if(!nome){ toast('Informe o nome da rota', 'erro'); return; }
   const db = getDB();
-  db.rotas.push({ id: novoId(), marca: SESSAO.marca, vendedorId: SESSAO.usuario.id, nome, data, clientes: [] });
+  const novaRota = { id: novoId(), marca: SESSAO.marca, vendedorId: SESSAO.usuario.id, nome, data, clientes: [] };
+  db.rotas.push(novaRota);
   setDB(db);
+  sincronizarRegistro('Rotas', novaRota);
   fecharModal();
   toast('Rota criada', 'sucesso');
   recarregarTela();
@@ -85,6 +87,7 @@ function salvarClienteNaRota(rotaId){
   const rota = db.rotas.find(r => r.id === rotaId);
   rota.clientes.push({ nome, mapsLink, status:'planejada', horaConfirmacao:null });
   setDB(db);
+  sincronizarRegistro('Rotas', rota);
   fecharModal();
   toast('Cliente adicionado à rota', 'sucesso');
   recarregarTela();
@@ -94,6 +97,7 @@ function confirmarVisita(rotaId, idx){
   const rota = db.rotas.find(r => r.id === rotaId);
   rota.clientes[idx].status = 'confirmada';
   rota.clientes[idx].horaConfirmacao = new Date().toISOString();
+  sincronizarRegistro('Rotas', rota);
   setDB(db);
   toast('Visita confirmada', 'sucesso');
   recarregarTela();

@@ -8,14 +8,45 @@
 const DB_KEY = 'jorlan_db_v1';
 const MARCAS = ['Renault', 'GM'];
 
+/* ---------------- Conexão com o backend (Google Apps Script + Sheets) ---------------- */
+// Cole aqui a URL do Web App publicada (Implantar > Nova implantação > Aplicativo da Web).
+const API_URL = 'https://script.google.com/macros/s/AKfycbxYZ91kjuLUHpLNYp8yI1VKUGMeGV2ppQ3gsKgICxvVE9C__u4OyYeNJHVumfSjNknu/exec';
+
+async function apiGet(acao, params){
+  params = params || {};
+  const qs = new URLSearchParams(Object.assign({ acao }, params)).toString();
+  const resp = await fetch(`${API_URL}?${qs}`);
+  if(!resp.ok) throw new Error('Falha ao buscar ' + acao);
+  return await resp.json();
+}
+async function apiPost(aba, registro){
+  await fetch(API_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' }, // evita preflight CORS no Apps Script
+    body: JSON.stringify({ aba, registro })
+  });
+}
+// Grava local (instantâneo) e também tenta gravar na planilha em segundo
+// plano — se a internet falhar, o app continua funcionando local e
+// tenta de novo na próxima sincronização.
+function sincronizarRegistro(aba, registro){
+  apiPost(aba, registro).catch(() => {
+    toast('Sem conexão com a planilha — salvo só neste aparelho por enquanto', 'erro');
+  });
+}
+
 function baseDeProdutos(marca){
   return marca === 'Renault' ? PRODUTOS_RENAULT : PRODUTOS_GM;
 }
 // Agrupa a base "flat" (uma linha por loja) em uma linha por código,
 // listando todas as lojas/empresas que possuem aquele item e seus custos.
+// Usa os dados vindos da planilha (buscados em carregarProdutosRemoto) quando
+// disponíveis; cai para a base local embutida como plano B (offline).
 function produtosAgrupados(marca){
   const cacheKey = '_agrupCache_' + marca;
   if(window[cacheKey]) return window[cacheKey];
+  const fallbackKey = '_agrupFallback_' + marca;
+  if(window[fallbackKey]) return window[fallbackKey];
   const base = baseDeProdutos(marca);
   const mapa = new Map();
   base.forEach(p => {
@@ -37,8 +68,44 @@ function produtosAgrupados(marca){
     });
   });
   const lista = Array.from(mapa.values());
-  window[cacheKey] = lista;
+  window[fallbackKey] = lista;
   return lista;
+}
+async function carregarProdutosRemoto(marca){
+  try{
+    const dados = await apiGet('produtos', { marca });
+    if(Array.isArray(dados) && dados.length){
+      window['_agrupCache_' + marca] = dados;
+    }
+  }catch(err){
+    // sem internet ou planilha fora do ar: mantém a base local embutida como já está
+  } finally {
+    if(SESSAO.marca === marca && (TELA_ATUAL === 'produtos' || TELA_ATUAL === 'novo-orcamento')){
+      recarregarTela();
+    }
+  }
+}
+async function sincronizarComServidor(){
+  try{
+    const [usuariosRemoto, orcamentosRemoto, rotasRemoto, parametrosRemoto] = await Promise.all([
+      apiGet('usuarios'), apiGet('orcamentos'), apiGet('rotas'), apiGet('parametros')
+    ]);
+    const db = getDB();
+    if(Array.isArray(usuariosRemoto) && usuariosRemoto.length){
+      db.usuarios = usuariosRemoto;
+    } else {
+      // planilha ainda sem usuários: envia os de teste locais como carga inicial
+      db.usuarios.forEach(u => sincronizarRegistro('Usuarios', u));
+    }
+    if(Array.isArray(orcamentosRemoto)) db.orcamentos = orcamentosRemoto;
+    if(Array.isArray(rotasRemoto)) db.rotas = rotasRemoto;
+    if(Array.isArray(parametrosRemoto) && parametrosRemoto.length){
+      parametrosRemoto.forEach(p => { db.parametros[p.marca] = { margemMinima: p.margemMinima }; });
+    }
+    setDB(db);
+  }catch(err){
+    toast('Não foi possível sincronizar com a planilha agora — usando dados salvos neste aparelho', 'erro');
+  }
 }
 
 function dbPadrao(){
@@ -128,6 +195,8 @@ function selecionarMarca(marca){
   document.getElementById('login-senha').value = '';
   document.getElementById('login-erro').textContent = '';
   document.getElementById('login-usuario').focus();
+  carregarProdutosRemoto(marca); // já começa a buscar em segundo plano, antes mesmo do login
+  sincronizarComServidor(); // já traz usuários/orçamentos/rotas atualizados, pra login funcionar com dado fresco
 }
 function voltarParaMarca(){
   SESSAO.marca = null;
@@ -201,6 +270,7 @@ function entrarNoApp(){
 
   const inicial = u.perfil === 'faturamento' ? 'aprovados' : 'produtos';
   irPara(inicial);
+  sincronizarComServidor().then(recarregarTela); // atualiza com o que houver de mais recente na planilha
 }
 
 const TITULOS = {

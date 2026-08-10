@@ -102,6 +102,7 @@ function marcarComoAprovado(id){
   o.dataAprovacao = new Date().toISOString();
   o.alteradoAposEnvio = false;
   setDB(db);
+  sincronizarRegistro('Orcamentos', o);
   toast('Orçamento aprovado e enviado ao faturamento', 'sucesso');
   recarregarTela();
 }
@@ -124,6 +125,7 @@ function confirmarFaturamento(id){
   o.dataFaturamento = new Date().toISOString();
   o.alteradoAposEnvio = false;
   setDB(db);
+  sincronizarRegistro('Orcamentos', o);
   fecharModal();
   toast('Orçamento faturado com sucesso', 'sucesso');
   recarregarTela();
@@ -185,6 +187,7 @@ function aprovarMargem(id){
   const o = db.orcamentos.find(x => x.id === id);
   o.status = 'pendente';
   setDB(db);
+  sincronizarRegistro('Orcamentos', o);
   toast('Margem aprovada. O vendedor já pode seguir com o orçamento.', 'sucesso');
   recarregarTela();
 }
@@ -193,6 +196,7 @@ function recusarMargem(id){
   const o = db.orcamentos.find(x => x.id === id);
   o.status = 'recusado_margem';
   setDB(db);
+  sincronizarRegistro('Orcamentos', o);
   toast('Margem recusada. O vendedor foi sinalizado.', 'erro');
   recarregarTela();
 }
@@ -254,16 +258,20 @@ function salvarUsuario(id){
   const perfil = document.getElementById('uf-perfil').value;
   if(!nome || !login || !senha){ toast('Preencha nome, login e senha', 'erro'); return; }
   const db = getDB();
+  let registroSalvo;
   if(id){
     const u = db.usuarios.find(x=>x.id===id);
     Object.assign(u, { nome, login, senha, telefone, perfil });
+    registroSalvo = u;
   } else {
     if(db.usuarios.some(x=>x.login.toLowerCase()===login.toLowerCase() && x.marca===SESSAO.marca)){
       toast('Já existe um login com esse nome nesta marca', 'erro'); return;
     }
-    db.usuarios.push({ id: novoId(), nome, login, senha, telefone, perfil, marca: SESSAO.marca, status:'ativo' });
+    registroSalvo = { id: novoId(), nome, login, senha, telefone, perfil, marca: SESSAO.marca, status:'ativo' };
+    db.usuarios.push(registroSalvo);
   }
   setDB(db);
+  sincronizarRegistro('Usuarios', registroSalvo);
   fecharModal();
   toast('Acesso salvo', 'sucesso');
   recarregarTela();
@@ -273,6 +281,7 @@ function alternarStatusUsuario(id){
   const u = db.usuarios.find(x=>x.id===id);
   u.status = u.status === 'ativo' ? 'inativo' : 'ativo';
   setDB(db);
+  sincronizarRegistro('Usuarios', u);
   recarregarTela();
 }
 
@@ -294,5 +303,6 @@ function salvarMargemMinima(){
   const db = getDB();
   db.parametros[SESSAO.marca].margemMinima = valor;
   setDB(db);
+  sincronizarRegistro('Parametros', { marca: SESSAO.marca, margemMinima: valor });
   toast('Margem mínima atualizada', 'sucesso');
 };

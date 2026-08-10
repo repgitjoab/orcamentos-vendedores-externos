@@ -322,6 +322,7 @@ function salvarOrcamento(){
     jaExiste.cliente = orc.cliente;
     jaExiste.alteradoAposEnvio = true;
     setDB(db);
+    sincronizarRegistro('Orcamentos', jaExiste);
     toast('Orçamento atualizado. O faturamento foi sinalizado sobre a alteração.', 'sucesso');
     ORCAMENTO_EM_EDICAO = null;
     irPara('meus-orcamentos');
@@ -336,14 +337,17 @@ function salvarOrcamento(){
 
   if(jaExiste){
     Object.assign(jaExiste, orc);
+    setDB(db);
+    sincronizarRegistro('Orcamentos', jaExiste);
     toast('Orçamento atualizado', 'sucesso');
   } else {
     orc.id = novoId();
     orc.dataCriacao = new Date().toISOString();
     db.orcamentos.push(orc);
+    setDB(db);
+    sincronizarRegistro('Orcamentos', orc);
     toast(orc.status === 'aguardando_margem' ? 'Orçamento enviado para aprovação de margem da gestão' : 'Orçamento salvo', 'sucesso');
   }
-  setDB(db);
   ORCAMENTO_EM_EDICAO = null;
   irPara('meus-orcamentos');
 }
