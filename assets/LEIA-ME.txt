@@ -1,0 +1,6 @@
+Coloque aqui os arquivos de logo:
+- logo-renault.png
+- logo-gm.png
+- logo-jorlan.png (opcional, usado nos PDFs/PNGs se desejar substituir o texto "GRUPO JORLAN")
+
+Se os arquivos não existirem, o sistema mostra automaticamente o nome da marca em texto no lugar do logo.
