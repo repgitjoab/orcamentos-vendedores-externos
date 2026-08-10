@@ -153,13 +153,18 @@ function renderNovoOrcamento(orc){
       </div>
     </div>
 
+    <div class="toolbar" style="justify-content:space-between;">
+      <h3 style="margin:0;">Itens do Orçamento</h3>
+      <button class="btn btn-gold" onclick="abrirModalAdicionarProduto()">+ Incluir produto</button>
+    </div>
+
     <div class="card" style="padding:0;overflow-x:auto;">
       <table class="tabela-responsiva tabela-carrinho">
         <thead><tr>
           <th>Item</th><th>Qtde</th><th>Custo Cont.</th><th>ICMS</th><th>Preço Venda</th><th>Margem desejada</th><th>Margem obtida</th><th>Subtotal</th><th></th>
         </tr></thead>
         <tbody>
-          ${orc.itens.length ? linhasItens : `<tr><td colspan="9"><div class="empty-state"><h3>Nenhum item ainda</h3><p>Vá em "Consultar Produtos" e clique em "+ Orçamento" para adicionar itens aqui.</p></div></td></tr>`}
+          ${orc.itens.length ? linhasItens : `<tr><td colspan="9"><div class="empty-state"><h3>Nenhum item ainda</h3><p>Clique em "+ Incluir produto" acima para adicionar itens aqui.</p></div></td></tr>`}
         </tbody>
       </table>
     </div>
@@ -204,6 +209,61 @@ function limparOrcamentoEmEdicao(){
   if(!confirm('Deseja descartar este orçamento e começar do zero?')) return;
   ORCAMENTO_EM_EDICAO = null;
   irPara('novo-orcamento');
+}
+
+/* ---- Incluir produto sem sair da tela do orçamento ---- */
+function abrirModalAdicionarProduto(){
+  abrirModal(`
+    <button class="modal-close" onclick="fecharModalAdicionarProduto()">&times;</button>
+    <h3 style="margin-top:0;">Incluir produto no orçamento</h3>
+    <input type="search" id="busca-produto-modal" placeholder="Buscar por código ou descrição..." style="width:100%;padding:10px 12px;border:1px solid var(--gray-300);border-radius:8px;font-size:14px;margin-bottom:12px;" oninput="filtrarProdutosModal()" autofocus>
+    <div id="resultados-produto-modal" style="max-height:340px;overflow-y:auto;"></div>
+    <button class="btn btn-primary btn-block" style="margin-top:14px;" onclick="fecharModalAdicionarProduto()">Concluir</button>
+  `);
+  filtrarProdutosModal();
+}
+function fecharModalAdicionarProduto(){
+  fecharModal();
+  renderNovoOrcamento(garantirOrcamentoEmEdicao());
+}
+function filtrarProdutosModal(){
+  const termo = (document.getElementById('busca-produto-modal').value || '').toLowerCase().trim();
+  const base = baseDeProdutos(SESSAO.marca);
+  const resultado = termo ? base.filter(p => p.codigo.toLowerCase().includes(termo) || p.descricao.toLowerCase().includes(termo)) : base;
+  const fatia = resultado.slice(0, 30);
+  const el = document.getElementById('resultados-produto-modal');
+  if(fatia.length === 0){
+    el.innerHTML = `<div class="empty-state" style="padding:20px;"><p>Nenhum produto encontrado.</p></div>`;
+    return;
+  }
+  el.innerHTML = fatia.map(p => `
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 4px;border-bottom:1px solid var(--gray-100);">
+      <div style="min-width:0;">
+        <strong>${p.codigo}</strong><br>
+        <span style="font-size:12.5px;color:var(--gray-500);">${p.descricao}</span><br>
+        <span style="font-size:12.5px;">${fmtMoeda(p.precoVendaIC || p.precoVendaFor)}</span>
+      </div>
+      <button class="btn btn-gold btn-sm" style="flex-shrink:0;" onclick='adicionarAoOrcamentoDoModal(${JSON.stringify(p).replace(/'/g,"&#39;")})'>+ Incluir</button>
+    </div>
+  `).join('') + (resultado.length > 30 ? `<div style="text-align:center;font-size:12px;color:var(--gray-500);padding:8px;">Mostrando 30 de ${resultado.length} — refine a busca para ver mais.</div>` : '');
+}
+function adicionarAoOrcamentoDoModal(produto){
+  const orc = garantirOrcamentoEmEdicao();
+  const existente = orc.itens.find(i => i.codigo === produto.codigo);
+  if(existente){
+    existente.qtde += 1;
+  } else {
+    const precoBase = produto.precoVendaIC || produto.precoVendaFor || produto.custoContabil;
+    orc.itens.push({
+      codigo: produto.codigo,
+      descricao: produto.descricao,
+      qtde: 1,
+      custoContabil: produto.custoContabil,
+      icmsPct: 0,
+      precoVenda: Number(precoBase.toFixed(2)),
+    });
+  }
+  toast('Item incluído', 'sucesso');
 }
 
 function salvarOrcamento(){
