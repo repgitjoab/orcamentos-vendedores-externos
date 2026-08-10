@@ -11,9 +11,9 @@ RENDERERS['produtos'] = function(){
       <span class="badge badge-cinza" id="contagem-produtos"></span>
     </div>
     <div class="card" style="padding:0;overflow-x:auto;">
-      <table>
+      <table class="tabela-responsiva">
         <thead><tr>
-          <th>Código</th><th>Descrição</th><th>Custo Cont.</th><th>Preço Sugerido</th><th>Curva</th><th>Empresa</th><th></th>
+          <th>Código</th><th>Descrição</th><th>Preço Tabela</th><th></th>
         </tr></thead>
         <tbody id="tbody-produtos"></tbody>
       </table>
@@ -44,18 +44,15 @@ function renderPaginaProdutos(){
   const fatia = resultado.slice(inicio, inicio + PAGE_SIZE);
   const tbody = document.getElementById('tbody-produtos');
   if(fatia.length === 0){
-    tbody.innerHTML = `<tr><td colspan="7"><div class="empty-state">
+    tbody.innerHTML = `<tr><td colspan="4"><div class="empty-state">
       <h3>Nenhum produto encontrado</h3><p>Tente buscar por outro código ou palavra da descrição.</p></div></td></tr>`;
   } else {
     tbody.innerHTML = fatia.map(p => `
       <tr>
-        <td><strong>${p.codigo}</strong></td>
-        <td>${p.descricao}</td>
-        <td>${fmtMoeda(p.custoContabil)}</td>
-        <td>${fmtMoeda(p.precoVendaIC || p.precoVendaFor)}</td>
-        <td><span class="badge badge-cinza">${p.curva || '—'}</span></td>
-        <td>${p.empresa || '—'}</td>
-        <td><button class="btn btn-gold btn-sm" onclick='adicionarAoOrcamento(${JSON.stringify(p).replace(/'/g,"&#39;")})'>+ Orçamento</button></td>
+        <td data-label="Código"><strong>${p.codigo}</strong></td>
+        <td data-label="Descrição">${p.descricao}</td>
+        <td data-label="Preço Tabela">${fmtMoeda(p.precoVendaIC || p.precoVendaFor)}</td>
+        <td data-label=""><button class="btn btn-gold btn-sm" onclick='adicionarAoOrcamento(${JSON.stringify(p).replace(/'/g,"&#39;")})'>+ Orçamento</button></td>
       </tr>
     `).join('');
   }

@@ -37,7 +37,7 @@ function renderListaOrcamentos(lista, opts){
     </div>
     ${filtrada.length === 0 ? `<div class="empty-state"><h3>Nenhum orçamento aqui</h3><p>Os orçamentos aparecem aqui assim que forem criados.</p></div>` : `
     <div class="card" style="padding:0;overflow-x:auto;">
-      <table>
+      <table class="tabela-responsiva">
         <thead><tr>
           <th>Cliente</th>${opts.mostrarVendedor?'<th>Vendedor</th>':''}<th>Itens</th><th>Total</th><th>Status</th><th>NF</th><th>Criado em</th><th></th>
         </tr></thead>
@@ -70,18 +70,18 @@ function renderLinhaOrcamento(o, opts){
 
   return `
     <tr>
-      <td><strong>${o.cliente.nome || '—'}</strong><br><span style="font-size:12px;color:var(--gray-500);">${o.cliente.telefone||''}</span></td>
-      ${opts.mostrarVendedor ? `<td>${o.vendedorNome}</td>` : ''}
-      <td>${o.itens.length}</td>
-      <td>${fmtMoeda(total)}</td>
-      <td>
+      <td data-label="Cliente"><strong>${o.cliente.nome || '—'}</strong><br><span style="font-size:12px;color:var(--gray-500);">${o.cliente.telefone||''}</span></td>
+      ${opts.mostrarVendedor ? `<td data-label="Vendedor">${o.vendedorNome}</td>` : ''}
+      <td data-label="Itens">${o.itens.length}</td>
+      <td data-label="Total">${fmtMoeda(total)}</td>
+      <td data-label="Status">
         <span class="badge ${info.cls}">${info.label}</span>
         ${vencido ? '<br><span class="badge badge-vermelho" style="margin-top:4px;">Prazo de 7 dias vencido</span>' : ''}
         ${o.alteradoAposEnvio ? '<br><span class="badge badge-amber" style="margin-top:4px;">⚠️ Alterado após envio</span>' : ''}
       </td>
-      <td>${o.nf || '—'}</td>
-      <td style="white-space:nowrap;font-size:12.5px;">${fmtData(o.dataCriacao)}</td>
-      <td style="white-space:nowrap;">${acoes.join(' ')}</td>
+      <td data-label="NF">${o.nf || '—'}</td>
+      <td data-label="Criado em" style="white-space:nowrap;font-size:12.5px;">${fmtData(o.dataCriacao)}</td>
+      <td data-label="" style="white-space:nowrap;">${acoes.join(' ')}</td>
     </tr>
   `;
 }

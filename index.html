@@ -234,6 +234,29 @@ tbody tr:hover{background:#fafafa;}
   .nav-section-title{display:none;}
   .sidebar-footer{display:none;}
   .nav-item{white-space:nowrap;margin-bottom:0;margin-right:6px;}
+  .content{padding:14px 12px 50px;}
+  .topbar{padding:12px 14px;}
+  .topbar h2{font-size:16px;}
+  .card{padding:14px;}
+}
+@media (max-width:640px){
+  table.tabela-responsiva thead{display:none;}
+  table.tabela-responsiva, table.tabela-responsiva tbody, table.tabela-responsiva tr, table.tabela-responsiva td{
+    display:block;width:100%;
+  }
+  table.tabela-responsiva tr{
+    border-bottom:8px solid var(--bg);padding:10px 4px;
+  }
+  table.tabela-responsiva td{
+    border:none;padding:5px 4px;text-align:left !important;
+  }
+  table.tabela-responsiva td[data-label]:not([data-label=""])::before{
+    content:attr(data-label);display:block;font-size:10.5px;font-weight:700;text-transform:uppercase;
+    color:var(--gray-500);letter-spacing:.4px;margin-bottom:2px;
+  }
+  .marca-grid{gap:16px;}
+  .marca-card{width:100%;max-width:320px;padding:26px 20px;}
+  .login-box{padding:26px 22px;}
 }
 .modal-overlay{
   position:fixed;inset:0;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;
