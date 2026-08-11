@@ -101,19 +101,21 @@ function adicionarAoOrcamento(produto){
   const existente = orc.itens.find(i => i.codigo === produto.codigo);
   if(existente){
     existente.qtde += 1;
+    autoAlocarQuantidade(existente);
   } else {
-    const lojaPadrao = lojaMaisBarata(produto);
-    const precoBase = melhorPrecoProduto(produto) || lojaPadrao.custoContabil;
-    orc.itens.push({
+    const precoBase = melhorPrecoProduto(produto) || (lojaMaisBarata(produto)||{}).custoContabil || 0;
+    const novoItem = {
       codigo: produto.codigo,
       descricao: produto.descricao,
       qtde: 1,
       icmsPct: 0,
       precoVenda: Number(precoBase.toFixed(2)),
       temPisCofins: !!(produto.possuiPis || produto.possuiCofins),
-      lojaSelecionada: lojaPadrao.empresa,
       lojasDisponiveis: produto.lojas,
-    });
+      alocacoes: [],
+    };
+    autoAlocarQuantidade(novoItem);
+    orc.itens.push(novoItem);
   }
   toast('Item adicionado ao orçamento', 'sucesso');
   irPara('novo-orcamento');
@@ -132,28 +134,23 @@ function renderNovoOrcamento(orc){
   let totalGeral = 0;
   let algumaMargemAbaixo = false;
   const linhasItens = orc.itens.map((item, idx) => {
-    const custoContabil = custoDaLojaSelecionada(item);
+    const custoContabil = custoMedioAlocado(item);
     const calc = calcularItem({ custoContabil, icmsPct: item.icmsPct, precoVenda: item.precoVenda, temPisCofins: item.temPisCofins });
     const subtotal = item.precoVenda * item.qtde;
     totalGeral += subtotal;
     if(calc.margemPct < minMargem) algumaMargemAbaixo = true;
     const margemBaixaCls = calc.margemPct < minMargem ? 'color:var(--red);font-weight:700;' : 'color:var(--green);font-weight:700;';
     const lojas = item.lojasDisponiveis || [];
-    const seletorLoja = lojas.length > 1
-      ? `<select onchange="atualizarLojaSelecionada(${idx}, this.value)" style="padding:6px 8px;border:1px solid var(--gray-300);border-radius:6px;font-size:12.5px;">
-          ${lojas.map(l => `<option value="${l.empresa}" ${l.empresa===item.lojaSelecionada?'selected':''}>Loja ${l.empresa} — custo ${fmtMoeda(l.custoContabil)}</option>`).join('')}
-        </select>`
-      : (lojas[0] ? `Loja ${lojas[0].empresa}` : '—');
-    const listaLojasParaCliente = lojas.map(l => l.empresa).join(', ');
-    return `
+    const alocado = qtdeAlocadaTotal(item);
+    const faltaAlocar = item.qtde - alocado;
+
+    const linhaPrincipal = `
       <tr>
         <td data-label="Item">
           <strong>${item.codigo}</strong><br>
-          <span style="font-size:12px;color:var(--gray-500);">${item.descricao}</span><br>
-          <span style="font-size:11.5px;color:var(--gray-500);">Disponível em: ${listaLojasParaCliente || '—'}</span>
+          <span style="font-size:12px;color:var(--gray-500);">${item.descricao}</span>
           ${item.temPisCofins ? '<br><span class="badge badge-cinza" style="margin-top:3px;">PIS/COFINS 9,25%</span>' : ''}
         </td>
-        <td data-label="Loja / Custo usado" class="td-input">${seletorLoja}<br><span style="font-size:11.5px;color:var(--gray-500);">Custo: ${fmtMoeda(custoContabil)}</span></td>
         <td data-label="Qtde" class="td-input"><input type="number" min="1" value="${item.qtde}" onchange="atualizarItem(${idx},'qtde',this.value)"></td>
         <td data-label="ICMS (%)" class="td-input"><input type="number" step="0.01" min="0" value="${item.icmsPct}" onchange="atualizarItem(${idx},'icmsPct',this.value)"></td>
         <td data-label="Preço Venda" class="td-input"><input type="number" step="0.01" min="0" value="${item.precoVenda}" onchange="atualizarItem(${idx},'precoVenda',this.value)"></td>
@@ -163,8 +160,45 @@ function renderNovoOrcamento(orc){
         <td data-label="Margem obtida" style="${margemBaixaCls}">${calc.margemPct.toFixed(1)}%</td>
         <td data-label="Subtotal"><strong>${fmtMoeda(subtotal)}</strong></td>
         <td data-label=""><button class="btn btn-danger btn-sm" onclick="removerItem(${idx})">✕ Remover</button></td>
-      </tr>
-    `;
+      </tr>`;
+
+    const linhasLoja = lojas.map(l => {
+      const alocEntry = (item.alocacoes||[]).find(a => a.empresa === l.empresa);
+      const qtdeUsada = alocEntry ? alocEntry.qtde : 0;
+      const estoque = Math.max(0, Number(l.quantidade)||0);
+      const semEstoque = estoque <= 0;
+      return `
+        <div style="display:flex;align-items:center;gap:10px;padding:6px 0;flex-wrap:wrap;">
+          <span style="min-width:230px;font-size:12.5px;${semEstoque?'color:var(--gray-500);':''}">
+            <strong>Loja ${l.empresa}</strong> — ${l.fornecedor || 'fornecedor não informado'}
+            <br><span style="color:${semEstoque?'var(--red)':'var(--gray-500)'};">${estoque} un. em estoque</span>
+          </span>
+          <input type="number" min="0" max="${estoque}" value="${qtdeUsada}" ${semEstoque?'disabled':''}
+            style="width:80px;padding:6px 8px;border:1px solid var(--gray-300);border-radius:6px;font-size:13px;"
+            onchange="alterarAlocacaoLoja(${idx}, '${l.empresa}', this.value)">
+          <span style="font-size:12px;color:var(--gray-500);">un. desta loja &nbsp;·&nbsp; custo ${fmtMoeda(l.custoContabil)}</span>
+        </div>`;
+    }).join('');
+
+    const linhaDetalhe = `
+      <tr>
+        <td colspan="8" style="background:var(--gray-100);padding:12px 16px;">
+          <div style="font-size:12px;font-weight:700;color:var(--gray-700);text-transform:uppercase;letter-spacing:.4px;margin-bottom:2px;">
+            De qual loja sai cada unidade
+          </div>
+          ${linhasLoja}
+          <div style="margin-top:6px;font-size:12.5px;${faltaAlocar>0?'color:var(--red);font-weight:700;':faltaAlocar<0?'color:var(--amber);font-weight:700;':'color:var(--green);font-weight:700;'}">
+            ${faltaAlocar>0
+              ? `⚠️ Faltam ${faltaAlocar} unidade(s) para alocar — o estoque somado das lojas não cobre a quantidade pedida.`
+              : faltaAlocar<0
+                ? `⚠️ Alocado a mais: reduza ${-faltaAlocar} unidade(s) para bater com a quantidade pedida.`
+                : `✓ ${alocado} de ${item.qtde} unidades alocadas — ${formatarAlocacoes(item)}`}
+            ${lojas.length>1 ? ` &nbsp;<button class="btn btn-outline btn-sm" style="margin-left:8px;" onclick="redistribuirAutomaticamente(${idx})">Redistribuir automaticamente</button>` : ''}
+          </div>
+        </td>
+      </tr>`;
+
+    return linhaPrincipal + linhaDetalhe;
   }).join('');
 
   content.innerHTML = `
@@ -187,10 +221,10 @@ function renderNovoOrcamento(orc){
     <div class="card" style="padding:0;overflow-x:auto;">
       <table class="tabela-responsiva tabela-carrinho">
         <thead><tr>
-          <th>Item</th><th>Loja / Custo usado</th><th>Qtde</th><th>ICMS</th><th>Preço Venda</th><th>Margem desejada</th><th>Margem obtida</th><th>Subtotal</th><th></th>
+          <th>Item</th><th>Qtde</th><th>ICMS</th><th>Preço Venda</th><th>Margem desejada</th><th>Margem obtida</th><th>Subtotal</th><th></th>
         </tr></thead>
         <tbody>
-          ${orc.itens.length ? linhasItens : `<tr><td colspan="9"><div class="empty-state"><h3>Nenhum item ainda</h3><p>Clique em "+ Incluir produto" acima para adicionar itens aqui.</p></div></td></tr>`}
+          ${orc.itens.length ? linhasItens : `<tr><td colspan="8"><div class="empty-state"><h3>Nenhum item ainda</h3><p>Clique em "+ Incluir produto" acima para adicionar itens aqui.</p></div></td></tr>`}
         </tbody>
       </table>
     </div>
@@ -211,18 +245,35 @@ function renderNovoOrcamento(orc){
 }
 
 function custoDaLojaSelecionada(item){
-  const lojas = item.lojasDisponiveis || [];
-  const loja = lojas.find(l => l.empresa === item.lojaSelecionada) || lojas[0];
-  return loja ? loja.custoContabil : 0;
+  // mantido por compatibilidade com itens antigos salvos antes da alocação por loja
+  return custoMedioAlocado(item);
 }
 function atualizarItem(idx, campo, valor){
   const orc = garantirOrcamentoEmEdicao();
-  orc.itens[idx][campo] = campo === 'qtde' ? Math.max(1, parseInt(valor)||1) : Number(valor)||0;
+  const item = orc.itens[idx];
+  item[campo] = campo === 'qtde' ? Math.max(1, parseInt(valor)||1) : Number(valor)||0;
+  if(campo === 'qtde') autoAlocarQuantidade(item);
   renderNovoOrcamento(orc);
 }
-function atualizarLojaSelecionada(idx, empresa){
+function alterarAlocacaoLoja(idx, empresa, valor){
   const orc = garantirOrcamentoEmEdicao();
-  orc.itens[idx].lojaSelecionada = empresa;
+  const item = orc.itens[idx];
+  const loja = (item.lojasDisponiveis||[]).find(l => l.empresa === empresa);
+  const estoque = loja ? Math.max(0, Number(loja.quantidade)||0) : 0;
+  const novaQtde = Math.max(0, Math.min(estoque, parseInt(valor)||0));
+  item.alocacoes = item.alocacoes || [];
+  const existente = item.alocacoes.find(a => a.empresa === empresa);
+  if(existente){
+    existente.qtde = novaQtde;
+  } else if(novaQtde > 0){
+    item.alocacoes.push({ empresa, fornecedor: loja ? loja.fornecedor : '', qtde: novaQtde });
+  }
+  item.alocacoes = item.alocacoes.filter(a => a.qtde > 0);
+  renderNovoOrcamento(orc);
+}
+function redistribuirAutomaticamente(idx){
+  const orc = garantirOrcamentoEmEdicao();
+  autoAlocarQuantidade(orc.itens[idx]);
   renderNovoOrcamento(orc);
 }
 function atualizarPorMargem(idx, margemDesejada){
@@ -289,19 +340,21 @@ function adicionarAoOrcamentoDoModal(produto){
   const existente = orc.itens.find(i => i.codigo === produto.codigo);
   if(existente){
     existente.qtde += 1;
+    autoAlocarQuantidade(existente);
   } else {
-    const lojaPadrao = lojaMaisBarata(produto);
-    const precoBase = melhorPrecoProduto(produto) || lojaPadrao.custoContabil;
-    orc.itens.push({
+    const precoBase = melhorPrecoProduto(produto) || (lojaMaisBarata(produto)||{}).custoContabil || 0;
+    const novoItem = {
       codigo: produto.codigo,
       descricao: produto.descricao,
       qtde: 1,
       icmsPct: 0,
       precoVenda: Number(precoBase.toFixed(2)),
       temPisCofins: !!(produto.possuiPis || produto.possuiCofins),
-      lojaSelecionada: lojaPadrao.empresa,
       lojasDisponiveis: produto.lojas,
-    });
+      alocacoes: [],
+    };
+    autoAlocarQuantidade(novoItem);
+    orc.itens.push(novoItem);
   }
   toast('Item incluído', 'sucesso');
 }
@@ -309,9 +362,14 @@ function adicionarAoOrcamentoDoModal(produto){
 function salvarOrcamento(){
   const orc = garantirOrcamentoEmEdicao();
   if(!orc.cliente.nome){ toast('Informe o nome do cliente', 'erro'); return; }
+  const itemComFalta = orc.itens.find(item => qtdeAlocadaTotal(item) !== item.qtde);
+  if(itemComFalta){
+    toast(`Ajuste a alocação de lojas do item ${itemComFalta.codigo} antes de salvar`, 'erro');
+    return;
+  }
   const min = margemMinima(SESSAO.marca);
   const foiEnviadoAntes = !!orc.id && ['aprovado'].includes(orc.statusAntesEdicao);
-  const algumaAbaixo = orc.itens.some(item => calcularItem({ custoContabil: custoDaLojaSelecionada(item), icmsPct: item.icmsPct, precoVenda: item.precoVenda, temPisCofins: item.temPisCofins }).margemPct < min);
+  const algumaAbaixo = orc.itens.some(item => calcularItem({ custoContabil: custoMedioAlocado(item), icmsPct: item.icmsPct, precoVenda: item.precoVenda, temPisCofins: item.temPisCofins }).margemPct < min);
 
   const db = getDB();
   const jaExiste = orc.id ? db.orcamentos.find(o => o.id === orc.id) : null;
@@ -364,7 +422,7 @@ function montarHtmlExportacao(orc){
       <td style="padding:14px 12px;text-align:center;">${item.qtde}</td>
       <td style="padding:14px 12px;text-align:right;">${fmtMoeda(item.precoVenda)}</td>
       <td style="padding:14px 12px;text-align:center;">
-        <span style="background:#E6F4EA;color:#1E8E3E;padding:4px 12px;border-radius:14px;font-weight:700;font-size:12px;">✓ DISPONÍVEL — Loja ${item.lojaSelecionada || ''}</span>
+        <span style="background:#E6F4EA;color:#1E8E3E;padding:4px 12px;border-radius:14px;font-weight:700;font-size:12px;">✓ ${formatarAlocacoes(item)}</span>
       </td>
     </tr>`).join('');
 

@@ -139,9 +139,9 @@ function visualizarOrcamento(id){
     <h3>Orçamento — ${o.cliente.nome || '—'}</h3>
     <p style="font-size:13px;color:var(--gray-500);">Vendedor: ${o.vendedorNome} · Criado em ${fmtData(o.dataCriacao)}</p>
     <table style="width:100%;font-size:13px;margin-bottom:14px;">
-      <thead><tr><th style="text-align:left;">Código</th><th style="text-align:left;">Descrição</th><th>Qtde</th><th>Preço</th></tr></thead>
+      <thead><tr><th style="text-align:left;">Código</th><th style="text-align:left;">Descrição</th><th>Qtde</th><th>Preço</th><th style="text-align:left;">Origem</th></tr></thead>
       <tbody>
-        ${o.itens.map(i=>`<tr><td>${i.codigo}</td><td>${i.descricao}</td><td style="text-align:center;">${i.qtde}</td><td style="text-align:right;">${fmtMoeda(i.precoVenda)}</td></tr>`).join('')}
+        ${o.itens.map(i=>`<tr><td>${i.codigo}</td><td>${i.descricao}</td><td style="text-align:center;">${i.qtde}</td><td style="text-align:right;">${fmtMoeda(i.precoVenda)}</td><td style="font-size:11.5px;color:var(--gray-500);">${formatarAlocacoes(i)}</td></tr>`).join('')}
       </tbody>
     </table>
     <p><strong>Total:</strong> ${fmtMoeda(total)} &nbsp; <strong>Status:</strong> ${statusInfo(o.status).label} ${o.nf ? '&nbsp; <strong>NF:</strong> '+o.nf : ''}</p>
@@ -158,7 +158,7 @@ RENDERERS['aprovacoes-margem'] = function(){
     ? `<div class="empty-state"><h3>Nenhuma aprovação pendente</h3><p>Orçamentos com margem abaixo de ${min}% aparecem aqui.</p></div>`
     : pendentes.map(o => {
         const total = o.itens.reduce((s,i)=>s+i.precoVenda*i.qtde,0);
-        const itensAbaixo = o.itens.filter(i => calcularItem({ custoContabil: custoDaLojaSelecionada(i), icmsPct: i.icmsPct, precoVenda: i.precoVenda, temPisCofins: i.temPisCofins }).margemPct < min);
+        const itensAbaixo = o.itens.filter(i => calcularItem({ custoContabil: custoMedioAlocado(i), icmsPct: i.icmsPct, precoVenda: i.precoVenda, temPisCofins: i.temPisCofins }).margemPct < min);
         return `
         <div class="card">
           <div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:10px;">
@@ -174,7 +174,7 @@ RENDERERS['aprovacoes-margem'] = function(){
           <table style="width:100%;margin-top:14px;font-size:13px;">
             <thead><tr><th style="text-align:left;">Item</th><th>Custo</th><th>ICMS</th><th>Preço</th><th>Margem</th></tr></thead>
             <tbody>
-              ${itensAbaixo.map(i => { const custoContabil = custoDaLojaSelecionada(i); const c = calcularItem({ custoContabil, icmsPct: i.icmsPct, precoVenda: i.precoVenda, temPisCofins: i.temPisCofins }); return `
+              ${itensAbaixo.map(i => { const custoContabil = custoMedioAlocado(i); const c = calcularItem({ custoContabil, icmsPct: i.icmsPct, precoVenda: i.precoVenda, temPisCofins: i.temPisCofins }); return `
                 <tr><td>${i.codigo} — ${i.descricao}</td><td style="text-align:center;">${fmtMoeda(custoContabil)}</td><td style="text-align:center;">${i.icmsPct}%</td><td style="text-align:center;">${fmtMoeda(i.precoVenda)}</td><td style="text-align:center;color:var(--red);font-weight:700;">${c.margemPct.toFixed(1)}%</td></tr>
               `; }).join('')}
             </tbody>

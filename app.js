@@ -58,6 +58,8 @@ function produtosAgrupados(marca){
     if(p.possuiCofins) grupo.possuiCofins = true;
     grupo.lojas.push({
       empresa: p.empresa,
+      fornecedor: p.fornecedor,
+      quantidade: p.quantidade,
       custoContabil: p.custoContabil,
       precoVendaIC: p.precoVendaIC,
       precoVendaFor: p.precoVendaFor,
@@ -324,6 +326,47 @@ function precoPorMargemDesejada({ custoContabil, icmsPct, margemPctDesejada, tem
   const fator = 1 - (icmsPct/100) - (pisCofinsPct/100) - (margemPctDesejada/100);
   if(fator <= 0) return custoContabil * 2; // evita divisão inválida quando irreal
   return custoContabil / fator;
+}
+
+/* ---------------- Alocação de quantidade entre lojas ---------------- */
+// Distribui automaticamente a quantidade desejada pelas lojas disponíveis,
+// priorizando a de menor custo, respeitando o estoque de cada uma.
+function autoAlocarQuantidade(item){
+  const lojas = (item.lojasDisponiveis || []).slice().sort((a,b) => (a.custoContabil||0) - (b.custoContabil||0));
+  let restante = Number(item.qtde) || 0;
+  const alocacoes = [];
+  lojas.forEach(loja => {
+    if(restante <= 0) return;
+    const estoque = Math.max(0, Number(loja.quantidade) || 0);
+    if(estoque <= 0) return;
+    const usar = Math.min(estoque, restante);
+    alocacoes.push({ empresa: loja.empresa, fornecedor: loja.fornecedor, qtde: usar });
+    restante -= usar;
+  });
+  item.alocacoes = alocacoes;
+}
+function qtdeAlocadaTotal(item){
+  return (item.alocacoes || []).reduce((s,a) => s + (Number(a.qtde)||0), 0);
+}
+// Custo médio ponderado pelas lojas efetivamente usadas — é o que entra no
+// cálculo de margem, já que cada loja pode ter um custo contábil diferente.
+function custoMedioAlocado(item){
+  const alocacoes = item.alocacoes || [];
+  const totalQtde = qtdeAlocadaTotal(item);
+  if(totalQtde <= 0){
+    const lojas = item.lojasDisponiveis || [];
+    return lojas[0] ? (lojas[0].custoContabil || 0) : 0;
+  }
+  const custoTotal = alocacoes.reduce((s,a) => {
+    const loja = (item.lojasDisponiveis || []).find(l => l.empresa === a.empresa);
+    return s + (loja ? (loja.custoContabil||0) : 0) * a.qtde;
+  }, 0);
+  return custoTotal / totalQtde;
+}
+function formatarAlocacoes(item){
+  const alocacoes = item.alocacoes || [];
+  if(!alocacoes.length) return '—';
+  return alocacoes.map(a => `${a.qtde} un. Loja ${a.empresa}`).join(' + ');
 }
 
 function statusInfo(status){
