@@ -154,10 +154,9 @@ function getDB(){
 }
 function setDB(db){ localStorage.setItem(DB_KEY, JSON.stringify(db)); }
 function novoId(){
-  const db = getDB();
-  db.seq = (db.seq || 100) + 1;
-  setDB(db);
-  return 'id' + db.seq;
+  // Gerado sem depender de nada salvo no navegador (timestamp + parte aleatória),
+  // pra nunca colidir com um id já existente em outro aparelho ou após limpar o cache.
+  return 'id' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
 }
 
 /* ---------------- Estado de sessão ---------------- */
