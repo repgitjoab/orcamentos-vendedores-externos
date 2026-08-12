@@ -331,7 +331,7 @@ tbody tr:hover{background:#fafafa;}
       <div class="marca-logo-box" id="login-logo-box"></div>
       <h2 id="login-marca-nome"></h2>
     </div>
-    <form onsubmit="return fazerLogin(event)">
+    <form onsubmit="return fazerLogin(event)" id="form-login">
       <div class="campo">
         <label>Usuário</label>
         <input type="text" id="login-usuario" autocomplete="username" required>
@@ -342,6 +342,25 @@ tbody tr:hover{background:#fafafa;}
       </div>
       <button type="submit" class="btn btn-primary btn-block">Entrar</button>
       <div class="erro-login" id="login-erro"></div>
+    </form>
+    <button class="voltar-marca" style="margin:14px 0 0;text-align:left;" onclick="abrirTrocaSenha()">Trocar minha senha</button>
+
+    <form onsubmit="return trocarSenha(event)" id="form-troca-senha" class="hidden" style="margin-top:14px;border-top:1px solid var(--gray-300);padding-top:14px;">
+      <div class="campo">
+        <label>Usuário</label>
+        <input type="text" id="ts-usuario" autocomplete="username" required>
+      </div>
+      <div class="campo">
+        <label>Senha atual</label>
+        <input type="password" id="ts-senha-atual" required>
+      </div>
+      <div class="campo">
+        <label>Nova senha</label>
+        <input type="password" id="ts-senha-nova" required>
+      </div>
+      <button type="submit" class="btn btn-gold btn-block">Atualizar senha</button>
+      <button type="button" class="voltar-marca" style="margin-top:8px;" onclick="fecharTrocaSenha()">Cancelar</button>
+      <div class="erro-login" id="troca-senha-msg"></div>
     </form>
   </div>
 </div>

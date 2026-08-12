@@ -87,20 +87,32 @@ async function carregarProdutosRemoto(marca){
     }
   }
 }
+// Mescla uma lista local com a vinda do servidor por id: o servidor tem
+// prioridade quando o mesmo id existe nos dois lados, mas um registro que só
+// existe localmente (ex: acabou de ser criado e a sincronização ainda não
+// confirmou) NUNCA é apagado por engano — evita perder cadastro novo.
+function mesclarPorId(local, remoto){
+  const mapa = new Map();
+  (local||[]).forEach(item => { if(item && item.id) mapa.set(item.id, item); });
+  (remoto||[]).forEach(item => { if(item && item.id) mapa.set(item.id, item); });
+  return Array.from(mapa.values());
+}
 async function sincronizarComServidor(){
   try{
     const [usuariosRemoto, orcamentosRemoto, rotasRemoto, parametrosRemoto] = await Promise.all([
       apiGet('usuarios'), apiGet('orcamentos'), apiGet('rotas'), apiGet('parametros')
     ]);
     const db = getDB();
-    if(Array.isArray(usuariosRemoto) && usuariosRemoto.length){
-      db.usuarios = usuariosRemoto;
-    } else {
-      // planilha ainda sem usuários: envia os de teste locais como carga inicial
-      db.usuarios.forEach(u => sincronizarRegistro('Usuarios', u));
+    if(Array.isArray(usuariosRemoto)){
+      if(usuariosRemoto.length){
+        db.usuarios = mesclarPorId(db.usuarios, usuariosRemoto);
+      } else {
+        // planilha ainda sem usuários: envia os de teste locais como carga inicial
+        db.usuarios.forEach(u => sincronizarRegistro('Usuarios', u));
+      }
     }
-    if(Array.isArray(orcamentosRemoto)) db.orcamentos = orcamentosRemoto;
-    if(Array.isArray(rotasRemoto)) db.rotas = rotasRemoto;
+    if(Array.isArray(orcamentosRemoto)) db.orcamentos = mesclarPorId(db.orcamentos, orcamentosRemoto);
+    if(Array.isArray(rotasRemoto)) db.rotas = mesclarPorId(db.rotas, rotasRemoto);
     if(Array.isArray(parametrosRemoto) && parametrosRemoto.length){
       parametrosRemoto.forEach(p => { db.parametros[p.marca] = { margemMinima: p.margemMinima }; });
     }
@@ -197,6 +209,7 @@ function selecionarMarca(marca){
   document.getElementById('login-senha').value = '';
   document.getElementById('login-erro').textContent = '';
   document.getElementById('login-usuario').focus();
+  fecharTrocaSenha();
   carregarProdutosRemoto(marca); // já começa a buscar em segundo plano, antes mesmo do login
   sincronizarComServidor(); // já traz usuários/orçamentos/rotas atualizados, pra login funcionar com dado fresco
 }
@@ -228,6 +241,41 @@ function sair(){
   SESSAO = { marca: null, usuario: null };
   document.getElementById('app').classList.remove('ativo');
   document.getElementById('tela-marca').classList.remove('hidden');
+}
+
+/* ---------------- Trocar senha ---------------- */
+function abrirTrocaSenha(){
+  document.getElementById('form-login').classList.add('hidden');
+  document.getElementById('form-troca-senha').classList.remove('hidden');
+  document.getElementById('troca-senha-msg').textContent = '';
+  document.getElementById('ts-usuario').focus();
+}
+function fecharTrocaSenha(){
+  document.getElementById('form-troca-senha').classList.add('hidden');
+  document.getElementById('form-login').classList.remove('hidden');
+}
+function trocarSenha(ev){
+  ev.preventDefault();
+  const login = document.getElementById('ts-usuario').value.trim();
+  const senhaAtual = document.getElementById('ts-senha-atual').value;
+  const senhaNova = document.getElementById('ts-senha-nova').value;
+  const msg = document.getElementById('troca-senha-msg');
+  if(!senhaNova || senhaNova.length < 3){
+    msg.textContent = 'A nova senha precisa ter pelo menos 3 caracteres.';
+    return false;
+  }
+  const db = getDB();
+  const usuario = db.usuarios.find(u => u.login.toLowerCase() === login.toLowerCase() && u.marca === SESSAO.marca);
+  if(!usuario || usuario.senha !== senhaAtual){
+    msg.textContent = 'Usuário ou senha atual incorretos para esta marca.';
+    return false;
+  }
+  usuario.senha = senhaNova;
+  setDB(db);
+  sincronizarRegistro('Usuarios', usuario);
+  fecharTrocaSenha();
+  toast('Senha atualizada com sucesso', 'sucesso');
+  return false;
 }
 
 /* ---------------- Shell do app / navegação ---------------- */
