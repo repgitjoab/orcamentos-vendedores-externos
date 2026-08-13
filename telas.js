@@ -109,7 +109,9 @@ function adicionarAoOrcamento(produto){
       descricao: produto.descricao,
       qtde: 1,
       icmsPct: 0,
+      precoTabela: Number(precoBase.toFixed(2)),
       precoVenda: Number(precoBase.toFixed(2)),
+      descontoPct: 0,
       temPisCofins: !!(produto.possuiPis || produto.possuiCofins),
       lojasDisponiveis: produto.lojas,
       alocacoes: [],
@@ -139,7 +141,6 @@ function renderNovoOrcamento(orc){
     const subtotal = item.precoVenda * item.qtde;
     totalGeral += subtotal;
     if(calc.margemPct < minMargem) algumaMargemAbaixo = true;
-    const margemBaixaCls = calc.margemPct < minMargem ? 'color:var(--red);font-weight:700;' : 'color:var(--green);font-weight:700;';
     const lojas = item.lojasDisponiveis || [];
     const alocado = qtdeAlocadaTotal(item);
     const faltaAlocar = item.qtde - alocado;
@@ -150,14 +151,19 @@ function renderNovoOrcamento(orc){
           <strong>${item.codigo}</strong><br>
           <span style="font-size:12px;color:var(--gray-500);">${item.descricao}</span>
           ${item.temPisCofins ? '<br><span class="badge badge-cinza" style="margin-top:3px;">PIS/COFINS 9,25%</span>' : ''}
+          ${calc.margemPct < minMargem ? '<br><span class="badge badge-amber" style="margin-top:3px;">Requer aprovação da gestão</span>' : ''}
         </td>
         <td data-label="Qtde" class="td-input"><input type="number" min="1" value="${item.qtde}" onchange="atualizarItem(${idx},'qtde',this.value)"></td>
+        <td data-label="Preço de Tabela">${fmtMoeda(item.precoTabela)}</td>
+        <td data-label="Desconto (%)" class="td-input"><input type="number" step="0.01" min="0" max="100" value="${item.descontoPct}" onchange="atualizarPorDesconto(${idx},this.value)"></td>
         <td data-label="ICMS (%)" class="td-input"><input type="number" step="0.01" min="0" value="${item.icmsPct}" onchange="atualizarItem(${idx},'icmsPct',this.value)"></td>
-        <td data-label="Preço Venda" class="td-input"><input type="number" step="0.01" min="0" value="${item.precoVenda}" onchange="atualizarItem(${idx},'precoVenda',this.value)"></td>
-        <td data-label="Margem desejada (%)" class="td-input">
-          <input type="number" step="0.01" placeholder="%" onchange="atualizarPorMargem(${idx},this.value)">
+        <td data-label="Preço com Desconto" class="td-input">
+          <input type="number" step="0.01" min="0" value="${item.precoVenda}" onchange="atualizarItem(${idx},'precoVenda',this.value)">
+          <div style="margin-top:4px;">
+            <input type="number" step="0.01" placeholder="ou % margem" title="Definir preço de venda a partir de uma margem desejada" style="width:100%;padding:5px 7px;font-size:11.5px;border:1px solid var(--gray-300);border-radius:6px;" onchange="atualizarPorMargemDesejada(${idx},this.value)">
+            <div style="font-size:10.5px;color:var(--gray-500);margin-top:2px;">margem atual: ${calc.margemPct.toFixed(1)}%</div>
+          </div>
         </td>
-        <td data-label="Margem obtida" style="${margemBaixaCls}">${calc.margemPct.toFixed(1)}%</td>
         <td data-label="Subtotal"><strong>${fmtMoeda(subtotal)}</strong></td>
         <td data-label=""><button class="btn btn-danger btn-sm" onclick="removerItem(${idx})">✕ Remover</button></td>
       </tr>`;
@@ -221,7 +227,7 @@ function renderNovoOrcamento(orc){
     <div class="card" style="padding:0;overflow-x:auto;">
       <table class="tabela-responsiva tabela-carrinho">
         <thead><tr>
-          <th>Item</th><th>Qtde</th><th>ICMS</th><th>Preço Venda</th><th>Margem desejada</th><th>Margem obtida</th><th>Subtotal</th><th></th>
+          <th>Item</th><th>Qtde</th><th>Preço de Tabela</th><th>Desconto</th><th>ICMS</th><th>Preço com Desconto</th><th>Subtotal</th><th></th>
         </tr></thead>
         <tbody>
           ${orc.itens.length ? linhasItens : `<tr><td colspan="8"><div class="empty-state"><h3>Nenhum item ainda</h3><p>Clique em "+ Incluir produto" acima para adicionar itens aqui.</p></div></td></tr>`}
@@ -253,6 +259,26 @@ function atualizarItem(idx, campo, valor){
   const item = orc.itens[idx];
   item[campo] = campo === 'qtde' ? Math.max(1, parseInt(valor)||1) : Number(valor)||0;
   if(campo === 'qtde') autoAlocarQuantidade(item);
+  if(campo === 'precoVenda'){
+    // recalcula o desconto correspondente a esse preço de venda digitado
+    item.descontoPct = item.precoTabela > 0 ? Number((100 - (item.precoVenda / item.precoTabela) * 100).toFixed(2)) : 0;
+  }
+  renderNovoOrcamento(orc);
+}
+function atualizarPorDesconto(idx, descontoPct){
+  const orc = garantirOrcamentoEmEdicao();
+  const item = orc.itens[idx];
+  item.descontoPct = Math.max(0, Math.min(100, Number(descontoPct)||0));
+  item.precoVenda = Number((item.precoTabela * (1 - item.descontoPct/100)).toFixed(2));
+  renderNovoOrcamento(orc);
+}
+function atualizarPorMargemDesejada(idx, margemPct){
+  const orc = garantirOrcamentoEmEdicao();
+  const item = orc.itens[idx];
+  const custoContabil = custoMedioAlocado(item);
+  const novoPreco = precoPorMargemDesejada({ custoContabil, icmsPct: item.icmsPct, margemPctDesejada: Number(margemPct)||0, temPisCofins: item.temPisCofins });
+  item.precoVenda = Number(novoPreco.toFixed(2));
+  item.descontoPct = item.precoTabela > 0 ? Number((100 - (item.precoVenda / item.precoTabela) * 100).toFixed(2)) : 0;
   renderNovoOrcamento(orc);
 }
 function alterarAlocacaoLoja(idx, empresa, valor){
@@ -274,14 +300,6 @@ function alterarAlocacaoLoja(idx, empresa, valor){
 function redistribuirAutomaticamente(idx){
   const orc = garantirOrcamentoEmEdicao();
   autoAlocarQuantidade(orc.itens[idx]);
-  renderNovoOrcamento(orc);
-}
-function atualizarPorMargem(idx, margemDesejada){
-  const orc = garantirOrcamentoEmEdicao();
-  const item = orc.itens[idx];
-  const custoContabil = custoDaLojaSelecionada(item);
-  const novoPreco = precoPorMargemDesejada({ custoContabil, icmsPct: item.icmsPct, margemPctDesejada: Number(margemDesejada)||0, temPisCofins: item.temPisCofins });
-  item.precoVenda = Number(novoPreco.toFixed(2));
   renderNovoOrcamento(orc);
 }
 function removerItem(idx){
@@ -348,7 +366,9 @@ function adicionarAoOrcamentoDoModal(produto){
       descricao: produto.descricao,
       qtde: 1,
       icmsPct: 0,
+      precoTabela: Number(precoBase.toFixed(2)),
       precoVenda: Number(precoBase.toFixed(2)),
+      descontoPct: 0,
       temPisCofins: !!(produto.possuiPis || produto.possuiCofins),
       lojasDisponiveis: produto.lojas,
       alocacoes: [],
@@ -420,7 +440,11 @@ function montarHtmlExportacao(orc){
       <td style="padding:14px 12px;font-weight:700;">${item.codigo}</td>
       <td style="padding:14px 12px;">${item.descricao}</td>
       <td style="padding:14px 12px;text-align:center;">${item.qtde}</td>
-      <td style="padding:14px 12px;text-align:right;">${fmtMoeda(item.precoVenda)}</td>
+      <td style="padding:14px 12px;text-align:right;">
+        ${item.descontoPct > 0 ? `<span style="text-decoration:line-through;color:#999;font-size:12px;">${fmtMoeda(item.precoTabela)}</span><br>` : ''}
+        <strong>${fmtMoeda(item.precoVenda)}</strong>
+        ${item.descontoPct > 0 ? `<br><span style="color:#1E8E3E;font-size:11px;font-weight:700;">-${item.descontoPct.toFixed(1)}%</span>` : ''}
+      </td>
       <td style="padding:14px 12px;text-align:center;">
         <span style="background:#E6F4EA;color:#1E8E3E;padding:4px 12px;border-radius:14px;font-weight:700;font-size:12px;">✓ ${formatarAlocacoes(item)}</span>
       </td>

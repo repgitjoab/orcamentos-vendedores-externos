@@ -32,8 +32,9 @@ function renderListaOrcamentos(lista, opts){
 
   const content = document.getElementById('content');
   content.innerHTML = `
-    <div class="toolbar">
+    <div class="toolbar" style="justify-content:space-between;">
       <div class="pill-filtros" id="pills-status"></div>
+      ${opts.permitirFaturar ? `<button class="btn btn-outline btn-sm" onclick="exportarAprovadosXLSX()">⬇ Baixar em Excel</button>` : ''}
     </div>
     ${filtrada.length === 0 ? `<div class="empty-state"><h3>Nenhum orçamento aqui</h3><p>Os orçamentos aparecem aqui assim que forem criados.</p></div>` : `
     <div class="card" style="padding:0;overflow-x:auto;">
@@ -61,7 +62,7 @@ function renderLinhaOrcamento(o, opts){
     acoes.push(`<button class="btn btn-outline btn-sm" onclick="editarOrcamento('${o.id}')">Editar</button>`);
   }
   if(opts.permitirAprovar && o.status === 'pendente'){
-    acoes.push(`<button class="btn btn-gold btn-sm" onclick="marcarComoAprovado('${o.id}')">Marcar como Aprovado</button>`);
+    acoes.push(`<button class="btn btn-gold btn-sm" onclick="marcarComoAprovado('${o.id}')">Aprovar e Enviar para Faturamento</button>`);
   }
   if(opts.permitirFaturar && o.status === 'aprovado'){
     acoes.push(`<button class="btn btn-primary btn-sm" onclick="abrirModalFaturar('${o.id}')">Faturar</button>`);
@@ -146,6 +147,43 @@ function visualizarOrcamento(id){
     </table>
     <p><strong>Total:</strong> ${fmtMoeda(total)} &nbsp; <strong>Status:</strong> ${statusInfo(o.status).label} ${o.nf ? '&nbsp; <strong>NF:</strong> '+o.nf : ''}</p>
   `);
+}
+
+/* =============== EXPORTAÇÃO EXCEL (Faturamento) =============== */
+function exportarAprovadosXLSX(){
+  const db = getDB();
+  const lista = db.orcamentos.filter(o => o.marca === SESSAO.marca && (o.status === 'aprovado' || o.status === 'faturado'));
+  if(!lista.length){ toast('Não há orçamentos aprovados para exportar', 'erro'); return; }
+  const linhas = [];
+  lista.forEach(o => {
+    o.itens.forEach(item => {
+      linhas.push({
+        'Orçamento': o.id,
+        'Status': statusInfo(o.status).label,
+        'NF': o.nf || '',
+        'Cliente': o.cliente.nome || '',
+        'CNPJ/CPF': o.cliente.cnpjCpf || '',
+        'Telefone Cliente': o.cliente.telefone || '',
+        'Vendedor': o.vendedorNome || '',
+        'Código': item.codigo,
+        'Descrição': item.descricao,
+        'Qtde': item.qtde,
+        'Origem (loja)': formatarAlocacoes(item),
+        'Preço de Tabela': item.precoTabela || '',
+        'Desconto (%)': item.descontoPct || 0,
+        'Preço de Venda': item.precoVenda,
+        'Subtotal': Number((item.precoVenda * item.qtde).toFixed(2)),
+        'Criado em': fmtData(o.dataCriacao),
+        'Aprovado em': fmtData(o.dataAprovacao),
+        'Faturado em': fmtData(o.dataFaturamento),
+      });
+    });
+  });
+  const ws = XLSX.utils.json_to_sheet(linhas);
+  ws['!cols'] = Object.keys(linhas[0]).map(k => ({ wch: Math.max(12, k.length + 2) }));
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Orçamentos Aprovados');
+  XLSX.writeFile(wb, `orcamentos_aprovados_${SESSAO.marca}_${new Date().toISOString().slice(0,10)}.xlsx`);
 }
 
 /* =============== APROVAÇÕES DE MARGEM (Gestor) =============== */

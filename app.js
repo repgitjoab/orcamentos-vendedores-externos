@@ -280,25 +280,38 @@ function trocarSenha(ev){
 /* ---------------- Shell do app / navegação ---------------- */
 const MENUS = {
   vendedor: [
-    { id:'produtos', label:'Consultar Produtos', icone:'🔍' },
-    { id:'novo-orcamento', label:'Novo Orçamento', icone:'🧾' },
-    { id:'meus-orcamentos', label:'Meus Orçamentos', icone:'📋' },
-    { id:'rotas', label:'Rotas de Visita', icone:'🗺️' },
+    { id:'produtos', label:'Consultar Produtos', icone:'busca' },
+    { id:'novo-orcamento', label:'Novo Orçamento', icone:'orcamento' },
+    { id:'meus-orcamentos', label:'Meus Orçamentos', icone:'lista' },
+    { id:'rotas', label:'Rotas de Visita', icone:'mapa' },
   ],
   gestor: [
-    { id:'produtos', label:'Consultar Produtos', icone:'🔍' },
-    { id:'novo-orcamento', label:'Novo Orçamento', icone:'🧾' },
-    { id:'meus-orcamentos', label:'Meus Orçamentos', icone:'📋' },
-    { id:'rotas', label:'Rotas de Visita', icone:'🗺️' },
+    { id:'produtos', label:'Consultar Produtos', icone:'busca' },
+    { id:'novo-orcamento', label:'Novo Orçamento', icone:'orcamento' },
+    { id:'meus-orcamentos', label:'Meus Orçamentos', icone:'lista' },
+    { id:'rotas', label:'Rotas de Visita', icone:'mapa' },
     { id:'__sep_gestao', label:'Gestão', secao:true },
-    { id:'todos-orcamentos', label:'Todos os Orçamentos', icone:'📊' },
-    { id:'aprovacoes-margem', label:'Aprovações de Margem', icone:'✅' },
-    { id:'vendedores', label:'Cadastro de Vendedores', icone:'👥' },
-    { id:'parametros', label:'Margem Mínima', icone:'⚙️' },
+    { id:'todos-orcamentos', label:'Todos os Orçamentos', icone:'grafico' },
+    { id:'aprovacoes-margem', label:'Aprovações de Margem', icone:'check' },
+    { id:'aprovados', label:'Faturamento', icone:'cartao' },
+    { id:'vendedores', label:'Cadastro de Vendedores', icone:'usuarios' },
+    { id:'parametros', label:'Margem Mínima', icone:'engrenagem' },
   ],
   faturamento: [
-    { id:'aprovados', label:'Orçamentos Aprovados', icone:'💳' },
+    { id:'aprovados', label:'Orçamentos Aprovados', icone:'cartao' },
   ]
+};
+
+const ICONS = {
+  busca: '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="8.5" cy="8.5" r="5.5"/><path d="M17 17l-4-4" stroke-linecap="round"/></svg>',
+  orcamento: '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="4" y="2.5" width="12" height="15" rx="1.5"/><path d="M7 7h6M7 10.2h6M7 13.4h3.5" stroke-linecap="round"/></svg>',
+  lista: '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M4 5.5h12M4 10h12M4 14.5h8" stroke-linecap="round"/></svg>',
+  mapa: '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M10 18s6-5.5 6-10.2A6 6 0 104 7.8C4 12.5 10 18 10 18z"/><circle cx="10" cy="7.6" r="2"/></svg>',
+  grafico: '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M4 16V9M10 16V4M16 16v-6" stroke-linecap="round"/></svg>',
+  check: '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="10" cy="10" r="7.3"/><path d="M7 10.2l2.1 2.1L13.3 8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  cartao: '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="2.5" y="4.5" width="15" height="11" rx="1.6"/><path d="M2.5 8h15" stroke-linecap="round"/></svg>',
+  usuarios: '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="7.2" cy="7" r="2.6"/><path d="M2.3 16c.6-2.8 2.4-4.3 4.9-4.3s4.3 1.5 4.9 4.3" stroke-linecap="round"/><circle cx="14.3" cy="7.4" r="2.1"/><path d="M12.9 11.9c1.9.1 3.3 1.5 3.8 3.9" stroke-linecap="round"/></svg>',
+  engrenagem: '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="10" cy="10" r="2.6"/><path d="M10 2.8v1.9M10 15.3v1.9M17.2 10h-1.9M4.7 10H2.8M15 5l-1.3 1.3M6.3 13.7L5 15M15 15l-1.3-1.3M6.3 6.3L5 5" stroke-linecap="round"/></svg>',
 };
 
 function entrarNoApp(){
@@ -314,7 +327,7 @@ function entrarNoApp(){
   const nav = document.getElementById('nav-list');
   nav.innerHTML = menu.map(item => item.secao
     ? `<div class="nav-section-title">${item.label}</div>`
-    : `<button class="nav-item" data-tela="${item.id}" onclick="irPara('${item.id}')">${item.icone} ${item.label}</button>`
+    : `<button class="nav-item" data-tela="${item.id}" onclick="irPara('${item.id}')"><span class="nav-icon">${ICONS[item.icone]||''}</span>${item.label}</button>`
   ).join('');
 
   const inicial = u.perfil === 'faturamento' ? 'aprovados' : 'produtos';
@@ -335,6 +348,7 @@ const TITULOS = {
 };
 const RENDERERS = {}; // preenchido em outros arquivos (telas.js)
 
+const TELAS_QUE_RESSINCRONIZAM = ['meus-orcamentos', 'todos-orcamentos', 'aprovados', 'aprovacoes-margem', 'vendedores', 'rotas'];
 function irPara(tela){
   TELA_ATUAL = tela;
   document.querySelectorAll('.nav-item').forEach(b => b.classList.toggle('ativo', b.dataset.tela === tela));
@@ -343,8 +357,16 @@ function irPara(tela){
   const fn = RENDERERS[tela];
   document.getElementById('content').innerHTML = fn ? '' : '<div class="empty-state">Tela em construção.</div>';
   if(fn) fn();
+  if(TELAS_QUE_RESSINCRONIZAM.includes(tela)){
+    sincronizarComServidor().then(() => { if(TELA_ATUAL === tela) recarregarTela(); });
+  }
 }
-function recarregarTela(){ irPara(TELA_ATUAL); }
+function recarregarTela(){
+  const fn = RENDERERS[TELA_ATUAL];
+  document.getElementById('topbar-titulo').textContent = TITULOS[TELA_ATUAL] || '';
+  document.getElementById('content').innerHTML = fn ? '' : '<div class="empty-state">Tela em construção.</div>';
+  if(fn) fn();
+}
 
 /* ---------------- Regras de negócio compartilhadas ---------------- */
 function margemMinima(marca){
