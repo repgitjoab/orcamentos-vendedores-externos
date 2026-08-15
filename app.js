@@ -86,6 +86,31 @@ async function carregarProdutosRemoto(marca){
       recarregarTela();
     }
   }
+  carregarUltimaAtualizacaoEstoque();
+}
+async function carregarUltimaAtualizacaoEstoque(){
+  try{
+    const resp = await apiGet('ultimaAtualizacaoEstoque');
+    atualizarBadgeEstoque(resp && resp.data ? resp.data : null);
+  }catch(err){
+    // sem internet: deixa o badge como estava (não apaga a última info conhecida)
+  }
+}
+function atualizarBadgeEstoque(isoData){
+  const el = document.getElementById('estoque-atualizado');
+  if(!el) return;
+  if(!isoData){
+    el.textContent = '';
+    return;
+  }
+  const d = new Date(isoData);
+  const agora = new Date();
+  const mesmoDia = d.toDateString() === agora.toDateString();
+  const dataFmt = mesmoDia
+    ? `hoje às ${d.toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'})}`
+    : `${d.toLocaleDateString('pt-BR')} às ${d.toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'})}`;
+  el.textContent = `Estoque atualizado ${dataFmt}`;
+  el.title = 'Data e hora da última vez que a aba Produtos foi alterada na planilha';
 }
 // Mescla uma lista local com a vinda do servidor por id: o servidor tem
 // prioridade quando o mesmo id existe nos dois lados, mas um registro que só
@@ -98,6 +123,7 @@ function mesclarPorId(local, remoto){
   return Array.from(mapa.values());
 }
 async function sincronizarComServidor(){
+  carregarUltimaAtualizacaoEstoque();
   try{
     const [usuariosRemoto, orcamentosRemoto, rotasRemoto, parametrosRemoto] = await Promise.all([
       apiGet('usuarios', { marca: SESSAO.marca }), apiGet('orcamentos', { marca: SESSAO.marca }),
