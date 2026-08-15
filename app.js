@@ -100,15 +100,16 @@ function mesclarPorId(local, remoto){
 async function sincronizarComServidor(){
   try{
     const [usuariosRemoto, orcamentosRemoto, rotasRemoto, parametrosRemoto] = await Promise.all([
-      apiGet('usuarios'), apiGet('orcamentos'), apiGet('rotas'), apiGet('parametros')
+      apiGet('usuarios', { marca: SESSAO.marca }), apiGet('orcamentos', { marca: SESSAO.marca }),
+      apiGet('rotas', { marca: SESSAO.marca }), apiGet('parametros')
     ]);
     const db = getDB();
     if(Array.isArray(usuariosRemoto)){
       if(usuariosRemoto.length){
         db.usuarios = mesclarPorId(db.usuarios, usuariosRemoto);
       } else {
-        // planilha ainda sem usuários: envia os de teste locais como carga inicial
-        db.usuarios.forEach(u => sincronizarRegistro('Usuarios', u));
+        // planilha ainda sem usuários desta marca: envia os de teste locais como carga inicial
+        db.usuarios.filter(u => u.marca === SESSAO.marca).forEach(u => sincronizarRegistro('Usuarios', u));
       }
     }
     if(Array.isArray(orcamentosRemoto)) db.orcamentos = mesclarPorId(db.orcamentos, orcamentosRemoto);
@@ -214,6 +215,7 @@ function selecionarMarca(marca){
 }
 function voltarParaMarca(){
   SESSAO.marca = null;
+  ORCAMENTO_EM_EDICAO = null; // nunca deixar um rascunho de uma marca vazar pra outra
   document.getElementById('tela-login').classList.add('hidden');
   document.getElementById('tela-marca').classList.remove('hidden');
 }
@@ -238,6 +240,7 @@ function fazerLogin(ev){
 }
 function sair(){
   SESSAO = { marca: null, usuario: null };
+  ORCAMENTO_EM_EDICAO = null; // idem: encerrar sessão nunca pode deixar rascunho pra trás
   document.getElementById('app').classList.remove('ativo');
   document.getElementById('tela-marca').classList.remove('hidden');
 }
